@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pyvista as pv
 
-#### Codigo para estructura de barras no lineal considerando un grado de libertad el
+#### Codigo para estructura de barras no lineal considerando un grado de libertad
+#### Con elementos isoparametricos
 #### Los vectores se escriben como matriz columna [[x1],[x2]]
 
 class Barra_nolineal:
@@ -51,30 +52,7 @@ class Barra_nolineal:
         dxdxhi = self.der_x_xhi(x1,x2)
         out = (dxdxhi**-1) * self.der_N_xhi()
         return out
-    
-
-    def F(self,x1,x2):
-        suma = 0 #Numero de coordenadas y numero de nodos del elemento
-        nodos_x = np.array([[x1],[x2]])
-        it = 0
-        for x in nodos_x:
-            suma = suma + x*self.der_N_X()[it]
-            it = it+1
-        return suma[0]
-        
-    def sigma(self,x1,x2):
-        #Material neo-hookeano
-        
-        mu = self.mu
-        landa = self.landa
-        
-        F = self.F(x1,x2)
-        b = F**2
-        
-        s = mu*(b - 1)
-        
-        return s
-    
+            
     def K_c(self,x1,x2):
         
         l = abs(x2 - x1)
@@ -97,5 +75,60 @@ class Barra_nolineal:
             it = it +1
             
         return k
+    
+    def F(self,x1,x2):
+        suma = 0 #Numero de coordenadas y numero de nodos del elemento
+        nodos_x = np.array([[x1],[x2]])
+        it = 0
+        for x in nodos_x:
+            suma = suma + x*self.der_N_X()[it]
+            it = it+1
+        return suma[0]
+    
+    def sigma(self,x1,x2):
+        #Material neo-hookeano
         
-   
+        mu = self.mu
+        landa = self.landa
+        
+        F = self.F(x1,x2)
+        b = F**2
+        
+        s = mu*(b - 1)
+        
+        return s
+        
+    def T(self, x1 ,x2): ##Fuerza interna
+        
+        nodos_x = np.array([[x1],[x2]])
+        l = abs(x2 - x1)
+        
+        dNdx = self.der_N_x(x1,x2)
+        s = self.sigma(x1,x2) #Una constante en este caso
+        A = self.area
+        
+        #Puntos de Gauss
+        x_gauss = [-(1/3)**0.5 , (1/3)**0.5 ]
+
+        #Pesos
+        w = [1 , 1]
+        
+        T = []
+        
+        it = 0
+        for x in nodos_x:
+            integral = 0
+            dNadx = dNdx[it]
+            jt = 0
+            for xi in x_gauss:
+                wi = w[jt]
+                integral = integral + A*(l/2)*s*wi*dNadx
+                
+                jt = jt +  1
+                
+            T.append(integral)
+                
+            it = it + 1
+            
+        return T
+    
