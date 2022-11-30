@@ -132,3 +132,34 @@ class Barra_nolineal:
             
         return T
     
+    
+## PAra elementos rotados
+class Barra_nolinal_rot(Barra_nolineal):
+    
+    def __init__(self,X1,Y1,X2,Y2,A = 1,mu = 0.25,landa = 0.5):
+        
+        self.largo = ( (X2-X1)**2 + (Y2-Y1)**2 )**0.5
+        self.cos = (X2-X1)/self.largo
+        self.sin = (Y2-Y1)/self.largo
+        self.L = np.array([self.cos, self.sin])
+        self.T = np.outer(self.L.T,self.L)
+        
+        self.X1 = np.matmul(self.L.T, np.array([[X1],[Y1]]) )
+        self.X2 = np.matmul(self.L.T, np.array([[X2],[Y2]]) )
+        
+        self.area = A 
+        self.mu = mu
+        self.landa = landa
+        self.nodos = np.array([[self.X1[0]],[self.X2[0]]])
+        self.D = self.landa + 2* self.mu
+    
+    def K(self, x1_n,y1_n,x2_n,y2_n):
+        T = self.T
+        L = self.L
+        x1 = np.matmul(self.L.T, np.array([[x1_n],[y1_n]]) )
+        x2 = np.matmul(self.L.T, np.array([[x2_n],[y2_n]]) )
+        
+        out = np.matmul(T,self.K_c(x1,x2))
+        
+        return out
+    
