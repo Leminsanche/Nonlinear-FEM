@@ -49,7 +49,7 @@ for f in F_ext:
         barra = barras[0]
         x1 , x2 = x[0] , x[1]
         k = barra.K_c(x1,x2)
-           
+        #In this part stil miss add the assembly and reduce process of the stiffness matrix  
         K = k[1,1]
         
         
