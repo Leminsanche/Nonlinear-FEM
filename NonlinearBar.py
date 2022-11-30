@@ -142,7 +142,7 @@ class Barra_nolinal_rot(Barra_nolineal):
         self.cos = (X2-X1)/self.largo
         self.sin = (Y2-Y1)/self.largo
         self.L = np.array([self.cos, self.sin])
-        self.T = np.outer(self.L.T,self.L)
+        self.R = np.outer(self.L.T,self.L)
         
         self.X1 = np.matmul(self.L.T, np.array([[X1],[Y1]]) )
         self.X2 = np.matmul(self.L.T, np.array([[X2],[Y2]]) )
@@ -154,12 +154,23 @@ class Barra_nolinal_rot(Barra_nolineal):
         self.D = self.landa + 2* self.mu
     
     def K(self, x1_n,y1_n,x2_n,y2_n):
-        T = self.T
+        R = self.R
         L = self.L
         x1 = np.matmul(self.L.T, np.array([[x1_n],[y1_n]]) )
         x2 = np.matmul(self.L.T, np.array([[x2_n],[y2_n]]) )
         
-        out = np.matmul(T,self.K_c(x1,x2))
+        out = np.matmul(R,self.K_c(x1,x2))
+        
+        return out
+    
+    
+    def T_int(self, x1_n,y1_n,x2_n,y2_n):
+        R = self.R
+        L = self.L
+        x1 = np.matmul(self.L.T, np.array([[x1_n],[y1_n]]) )
+        x2 = np.matmul(self.L.T, np.array([[x2_n],[y2_n]]) )
+        
+        out = np.outer(self.T(x1,x2).T,L)
         
         return out
     
