@@ -31,7 +31,8 @@ for i in Fix:
         fix.append(int(auxX-1))
     if auxY != 0:
         fix.append(int(auxY-1))
- 
+        
+        
 ## MAIN code ###
 
 #input
@@ -49,8 +50,8 @@ for i in var:
     if i in fix:
         dof.remove(i)
 
-mu = 29.5e4/2 #10
-landa = 29.5e4/4 #10 
+mu = 29.5e4/4 #10
+landa = 29.5e4/2 #10 
 A =  1
 
 
@@ -67,8 +68,6 @@ for elem in conectividad:
     barras.append(barra)
 #barra.T_int(Ni,Nj).T[0]
 
-
-
 X = nodos  #Se definen las coordenadas materiales 
 
 NF = 100 #numero de substeps de carga 
@@ -79,7 +78,7 @@ NF = 100 #numero de substeps de carga
 #F_ext  = np.linspace(0,n_fs[1], NF) #Aumento de cargas
 
 tol = 1e-6  #Tolerancia
-iter_max = 10 #Iteraciones maximas
+iter_max = 100 #Iteraciones maximas
 F , R = np.zeros([len(nodos)*len(nodos[0])]) , np.zeros([len(nodos)*len(nodos[0])]) #Fuerza y reciduo inicial
 
 x = X.copy() #Coordenadas espaciales iniciales
@@ -91,7 +90,10 @@ for i in range(NF):
         F[2*n_f: 2*n_f+2] = F[2*n_f: 2*n_f+2] + n_fs/NF
         R[2*n_f: 2*n_f+2] = R[2*n_f: 2*n_f+2] - n_fs/NF
     
-    #print(f'################################################ Carga = {F}#######################################')
+    print(f'################################################ Paso de Carga ###############################################')
+    
+    #print(R)
+    
     
     iterador = 0
     error = 100  #Error inicial
@@ -113,18 +115,19 @@ for i in range(NF):
             K[2*nj:2*nj+2,2*ni:2*ni+2] +=  k[2: ,:2]
             
             
-        #print(K)
+        
         
         aux = K[dof,:]
         K_red = aux[:,dof]
-        
+        #print(K_red)
         u = np.linalg.solve(K_red,-R[dof].T)
-        #print(u)
+        print('*****************************************\nDesplazamiento',u)
         
         x = x.reshape((-1))
         x[dof] = x[dof] + u
-        #print(x)
+        
         x = x.reshape((-1,2))
+        print('*****************************************\nNuevas Coordenadas\n',x)
         
         T = np.zeros([len(nodos)*len(nodos[0])])
         for elem in conectividad:
@@ -136,13 +139,17 @@ for i in range(NF):
             T[2*ni:2*ni+2] += t[:2]
             T[2*nj:2*nj+2] += t[2:]
     
+    
         R = T - F
-        error = np.linalg.norm(R)
+        error = np.linalg.norm(R[dof])/np.linalg.norm(F[dof])
+        print('Error',error)
         
         iterador = iterador +1
-
-        
-       
+        if iterador >= iter_max:
+            print('Limite de iteraciones')
+            
+            
+            
 ###########################################################################################################################
 #################################################### Grafico ##############################################################
 ###########################################################################################################################
@@ -176,9 +183,9 @@ poly["scalars"] = np.arange(poly.n_points)
 
 tube = poly.tube(radius = 0.3)
 
-tube.plot(background='k',text="Estructura de Barras Original", show_scalar_bar=False,color = 'g' , cpos = 'xy')
-
-
+tube.plot(background='k',text="Estructura de Barras Original", show_scalar_bar=False,color = 'g' , cpos = 'xy')            
+        
+    
 ###########################################################################################################################
 #################################################### Grafico ##############################################################
 ###########################################################################################################################
@@ -212,4 +219,4 @@ poly["scalars"] = np.arange(poly.n_points)
 
 tube = poly.tube(radius = 0.3)
 
-tube.plot(background='k',text="Estructura de Barras Deformada", show_scalar_bar=False,color = 'g' , cpos = 'xy')
+tube.plot(background='k',text="Estructura de Barras Deformada", show_scalar_bar=False,color = 'g' , cpos = 'xy')    
