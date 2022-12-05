@@ -1,3 +1,8 @@
+"""
+@author : Nicolás Sánchez
+"""
+
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pyvista as pv
@@ -5,10 +10,9 @@ import pyvista as pv
 #### Codigo para estructura de barras no lineal considerando un grado de libertad
 #### Con elementos isoparametricos
 #### Los vectores se escriben como matriz columna [[x1],[x2]]
-
 class Barra_nolineal:
     #X1 y X2 coordenada material, estado inicial
-    def __init__(self,X1,X2,A,mu,landa):
+    def __init__(self,X1,X2,A = 1,mu = 0.25,landa = 0.5):
         
         self.area = A 
         self.mu = mu
@@ -130,17 +134,23 @@ class Barra_nolineal:
                 
             it = it + 1
             
-        return T
+        return np.array(T)
+
     
     
-## PAra elementos rotados
-class Barra_nolinal_rot(Barra_nolineal):
+class Barra_nolineal_rot(Barra_nolineal):
     
-    def __init__(self,X1,Y1,X2,Y2,A = 1,mu = 0.25,landa = 0.5):
+    def __init__(self,n1,n2,A = 1,mu = 0.25,landa = 0.5):
+        
+        X1 = n1[0]
+        Y1 = n1[1]
+        X2 = n2[0]
+        Y2 = n2[1]
         
         self.largo = ( (X2-X1)**2 + (Y2-Y1)**2 )**0.5
         self.cos = (X2-X1)/self.largo
         self.sin = (Y2-Y1)/self.largo
+        
         self.L = np.array([self.cos, self.sin])
         self.R = np.outer(self.L.T,self.L)
         
@@ -153,18 +163,35 @@ class Barra_nolinal_rot(Barra_nolineal):
         self.nodos = np.array([[self.X1[0]],[self.X2[0]]])
         self.D = self.landa + 2* self.mu
     
-    def K(self, x1_n,y1_n,x2_n,y2_n):
+    def K(self,n1,n2):
+        
+        x1_n = n1[0]
+        y1_n = n1[1]
+        x2_n = n2[0]
+        y2_n = n2[1]
+        
         R = self.R
         L = self.L
         x1 = np.matmul(self.L.T, np.array([[x1_n],[y1_n]]) )
         x2 = np.matmul(self.L.T, np.array([[x2_n],[y2_n]]) )
         
-        out = np.matmul(R,self.K_c(x1,x2))
+        Ka = self.K_c(x1,x2) #Matriz de rigidez en el sistema local
+        Kout = np.zeros([4,4]) #Matriz de rigidez sistea global
+
+        Kout[:2,:2] = R * Ka[0,0]
+        Kout[2:,2:] = R * Ka[1,1]
+        Kout[:2,2:] = R * Ka[1,0]
+        Kout[2:,:2] = R * Ka[0,1]
         
-        return out
+        return Kout
     
     
-    def T_int(self, x1_n,y1_n,x2_n,y2_n):
+    def T_int(self, n1,n2):
+        x1_n = n1[0]
+        y1_n = n1[1]
+        x2_n = n2[0]
+        y2_n = n2[1]
+        
         R = self.R
         L = self.L
         x1 = np.matmul(self.L.T, np.array([[x1_n],[y1_n]]) )
@@ -172,5 +199,4 @@ class Barra_nolinal_rot(Barra_nolineal):
         
         out = np.outer(self.T(x1,x2).T,L)
         
-        return out
-    
+        return out.reshape((-1,1))  
