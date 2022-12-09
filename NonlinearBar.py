@@ -200,3 +200,101 @@ class Barra_nolineal_rot(Barra_nolineal):
         out = np.outer(self.T(x1,x2).T,L)
         
         return out.reshape((-1,1))  
+
+
+### As i did a bar code for nonlinear strctures, i created a general code tu create truss structurs like this one:
+# 
+# ---------------- --------> F
+#            --- l
+#          ---   l
+#        ---     l
+#      ---       l
+#    ---         l
+#  ---           l
+# ---------------l --------> F
+
+
+def Estructura(l , n , ang , mag):
+    #Largo de las barras 0.1
+    n = l
+    l  = n
+
+    nodos = np.zeros((2*n+2,2))
+
+    # 0 0  0
+    # 1 0.1  0
+    # 2 0.1  0.1
+    # 3 0  0.1
+
+    it = 0
+
+    # Nodos
+    nodos   = np.zeros((2*n+2,2))
+
+    it = 0
+    for ind,arr in enumerate(nodos):
+        nodos[ind] = [ind*l,0]
+        it = it +1 
+        if it == n+1:
+            break
+
+    nodos[n+1: ,1] = l 
+    nodos[n+1: ,0] = [i for i in reversed(list(nodos[:n+1 ,0]))]
+
+    # Conectividad
+
+    # 0 0 1
+    # 1 1 2
+    # 2 2 3
+    # 3 0 2
+
+
+    Conectividad = []
+
+    for i in range(n):
+        c = 0
+
+        if c == 0:
+            aux = [i , i , i+1]
+            Conectividad.append(aux)
+            c = c+1
+
+        if c ==1:
+            aux = [i+1 , 2*n - i , i+1]
+            Conectividad.append(aux)
+            c= c+1
+        if c ==2:
+            aux = [i+1 , i , 2*n -i]
+
+            Conectividad.append(aux)
+            c= c+1
+        if c ==3:
+            aux = [i+1  , 2*n+1 -i , 2*n - i]
+            Conectividad.append(aux)
+            c= c+1
+
+
+    angulo  = ang  #angulo = float(input('angulo respecto la horizontal: '))
+    magnitud = mag #magnitud = float(input('Maginutd de la fuerza: '))
+    nodo = n+1
+    carga = np.array([[nodo   , magnitud * np.cos(angulo*(np.pi/180)) , magnitud * np.sin(angulo*(np.pi/180)) ],
+                      [nodo-1 , magnitud * np.cos(angulo*(np.pi/180)) , magnitud * np.sin(angulo*(np.pi/180))]])
+    #magnitud * np.cos(angulo*(np.pi/180)) , magnitud * np.sin(angulo*(np.pi/180))
+    fix = np.array([[0 , 1 , 1],
+                    [2*n+1 , 1 , 1]])
+
+    Conect = []
+
+    for ind , i in  enumerate(Conectividad):
+        aux = [ind , i[1] , i[2]]
+        Conect.append(aux)
+
+
+
+
+
+    np.savetxt('data/carga3.txt',carga)
+    np.savetxt('data/nodos3.txt',nodos)
+    np.savetxt('data/conectividad3.txt',Conect)
+    np.savetxt('data/fix3.txt',fix)
+    return Conectividad, nodos
