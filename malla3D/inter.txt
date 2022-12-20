@@ -1,0 +1,14 @@
+elementos fisicos que se deben incluir en la malla
+$Elem_Malla
+3D
+"cubo" 1           /Volumen arteria 1"Physical volume" 1"set de vulcan"
+$Fin_Elem_Malla
+
+condiciones de contorno (primeras menor peso) (2=exacta,1=aditiva), [elementos fisicos, aditivo o exacta, que coordenadas afecta la funcion, la funcion, los valores de la funcion]
+$Restricciones
+"Cara_de_abajo" Exacto  010 1 0.0   0.0   0.0
+"Cara_de_arriba" Exacto 010 1 0.0   1.0   0.0
+
+$Fin_Restricciones
+
+	
