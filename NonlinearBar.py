@@ -1,7 +1,7 @@
 """
 @author : Nicolás Sánchez
 """
-
+# Funciones y clases para trabajar con el metodo de elementos finitos, cn elementos barra y hexahedricos
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -298,3 +298,181 @@ def Estructura(l , n , ang , mag):
     np.savetxt('data/conectividad3.txt',Conect)
     np.savetxt('data/fix3.txt',fix)
     return Conectividad, nodos
+
+
+######################################### Codigo Elemento Hexaedrico #######################################################################
+
+class Neohooke_comp:
+    iden = np.eye(3)
+    def __init__(self, mu, clam):
+        self.mu = mu
+        self.clam = clam
+    
+    def __call__(self, F):
+        b = np.matmul(F,F.T)
+        j = np.linalg.det(F)
+        return (self.mu/j)*(b - self.iden) + (self.clam/j)*np.log(j)*self.iden
+
+    def tan(self, F):
+        iden = self.iden
+        iden4 = np.einsum('ij,kl', iden, iden)
+        iden4Sym = (np.einsum('ik,jl', iden, iden) + np.einsum('il,jk', iden, iden))/2
+        j = np.linalg.det(F)
+        return self.clam/j*iden4 + 2/j*(self.mu - self.clam*np.log(j))*iden4Sym
+
+
+
+class Hex:
+    def __init__(self, material, nodes, conn):
+        self.conn = conn
+        self.mat = material
+        self.nodes = nodes[conn]
+        self.nnodes = 8
+
+    def _get_nodes(self, x):
+        return x[self.conn,:]
+
+
+    def N_func(self, xi):
+        xi0 = xi[0]
+        xi1 = xi[1]
+        xi2 = xi[2]
+        N1 = (1.0 - xi0)*(1.0 - xi1)*(1.0 - xi2)/8.0
+        N2 = (1.0 + xi0)*(1.0 - xi1)*(1.0 - xi2)/8.0
+        N3 = (1.0 + xi0)*(1.0 + xi1)*(1.0 - xi2)/8.0
+        N4 = (1.0 - xi0)*(1.0 + xi1)*(1.0 - xi2)/8.0
+        N5 = (1.0 - xi0)*(1.0 - xi1)*(1.0 + xi2)/8.0
+        N6 = (1.0 + xi0)*(1.0 - xi1)*(1.0 + xi2)/8.0
+        N7 = (1.0 + xi0)*(1.0 + xi1)*(1.0 + xi2)/8.0
+        N8 = (1.0 - xi0)*(1.0 + xi1)*(1.0 + xi2)/8.0
+        return np.array([N1, N2, N3, N4, N5, N6, N7, N8])
+
+    def der_N_fun(self, xi):
+        xi0 = xi[0]
+        xi1 = xi[1]
+        xi2 = xi[2]
+        return np.array([[  -(1.0 - xi1)*(1.0 - xi2)/8.0, -(1.0 - xi0)*(1.0 - xi2)/8.0, -(1.0 - xi0)*(1.0 - xi1)/8.0],
+                         [   (1.0 - xi1)*(1.0 - xi2)/8.0, -(1.0 + xi0)*(1.0 - xi2)/8.0, -(1.0 + xi0)*(1.0 - xi1)/8.0],
+                         [   (1.0 + xi1)*(1.0 - xi2)/8.0,  (1.0 + xi0)*(1.0 - xi2)/8.0, -(1.0 + xi0)*(1.0 + xi1)/8.0],
+                         [  -(1.0 + xi1)*(1.0 - xi2)/8.0,  (1.0 - xi0)*(1.0 - xi2)/8.0, -(1.0 - xi0)*(1.0 + xi1)/8.0],
+                         [  -(1.0 - xi1)*(1.0 + xi2)/8.0, -(1.0 - xi0)*(1.0 + xi2)/8.0,  (1.0 - xi0)*(1.0 - xi1)/8.0],
+                         [   (1.0 - xi1)*(1.0 + xi2)/8.0, -(1.0 + xi0)*(1.0 + xi2)/8.0,  (1.0 + xi0)*(1.0 - xi1)/8.0],
+                         [   (1.0 + xi1)*(1.0 + xi2)/8.0,  (1.0 + xi0)*(1.0 + xi2)/8.0,  (1.0 + xi0)*(1.0 + xi1)/8.0],
+                         [  -(1.0 + xi1)*(1.0 + xi2)/8.0,  (1.0 - xi0)*(1.0 + xi2)/8.0,  (1.0 - xi0)*(1.0 + xi1)/8.0],
+                         ]) 
+
+    def der_X_xi(self, xi):  # 7.6b
+        return np.einsum('ai,aj', self.nodes, self.der_N_fun(xi))
+
+    def der_N_X(self, xi):  # 7.6b
+        inv_der_X_xi = np.linalg.inv(self.der_X_xi(xi).T)
+        return np.matmul(inv_der_X_xi,self.der_N_fun(xi).T).T
+
+    def der_x_xi(self, x, xi):  # 7.11a
+        return np.einsum('ai,aj', x, self.der_N_fun(xi))
+
+    def der_N_x(self, x, xi):  # 7.11b
+        inv_der_x_xi = np.linalg.inv(self.der_x_xi(x, xi).T)
+        
+        return np.matmul(inv_der_x_xi,self.der_N_fun(xi).T).T
+
+    def f(self, x, xi):  # gradiente de deformacion -- 7.5
+        return np.einsum('ai,aj->ij', x, self.der_N_X(xi))
+
+    def stress(self, x, xi): # from mat
+        F = self.f(x, xi)
+        return self.mat(F)
+
+    def t_int(self, x_complete): # 7.15b
+        x = self._get_nodes(x_complete)
+        gauss_points = np.array([[-1/3**0.5, -1/3**0.5, -1/3**0.5],
+                                 [ 1/3**0.5, -1/3**0.5, -1/3**0.5],
+                                 [ 1/3**0.5,  1/3**0.5, -1/3**0.5],
+                                 [-1/3**0.5,  1/3**0.5, -1/3**0.5],
+                                 [-1/3**0.5, -1/3**0.5,  1/3**0.5],
+                                 [ 1/3**0.5, -1/3**0.5,  1/3**0.5],
+                                 [ 1/3**0.5,  1/3**0.5,  1/3**0.5],
+                                 [-1/3**0.5,  1/3**0.5,  1/3**0.5],
+                                 ])
+
+        t_int = np.zeros((self.nnodes, 3))
+        for gp in gauss_points:
+            F = self.f(x, gp)
+            sig = self.mat(F)
+            temp = np.einsum('ij,aj->ai', sig, self.der_N_x(x, gp))
+            temp *= np.linalg.det(self.der_x_xi(x, gp))
+            t_int += temp
+
+        return t_int
+    
+    def k_sig(self, x):
+        gauss_points = np.array([[-1/3**0.5, -1/3**0.5, -1/3**0.5],
+                                 [ 1/3**0.5, -1/3**0.5, -1/3**0.5],
+                                 [ 1/3**0.5,  1/3**0.5, -1/3**0.5],
+                                 [-1/3**0.5,  1/3**0.5, -1/3**0.5],
+                                 [-1/3**0.5, -1/3**0.5,  1/3**0.5],
+                                 [ 1/3**0.5, -1/3**0.5,  1/3**0.5],
+                                 [ 1/3**0.5,  1/3**0.5,  1/3**0.5],
+                                 [-1/3**0.5,  1/3**0.5,  1/3**0.5],
+                                 ])
+        iden = np.eye(3)
+
+        k_sig = np.zeros((8, 3, 8, 3))
+        for gp in gauss_points:
+            F = self.f(x, gp)
+            temp = np.einsum('ak, kl, bl, ij -> aibj', self.der_N_x(x, gp), self.mat(F), self.der_N_x(x, gp), iden)
+            temp *= np.linalg.det(self.der_x_xi(x, gp))
+            k_sig += temp
+
+        return k_sig
+
+
+    def k_const(self, x): # 7.35
+        gauss_points = np.array([[-1/3**0.5, -1/3**0.5, -1/3**0.5],
+                                 [ 1/3**0.5, -1/3**0.5, -1/3**0.5],
+                                 [ 1/3**0.5,  1/3**0.5, -1/3**0.5],
+                                 [-1/3**0.5,  1/3**0.5, -1/3**0.5],
+                                 [-1/3**0.5, -1/3**0.5,  1/3**0.5],
+                                 [ 1/3**0.5, -1/3**0.5,  1/3**0.5],
+                                 [ 1/3**0.5,  1/3**0.5,  1/3**0.5],
+                                 [-1/3**0.5,  1/3**0.5,  1/3**0.5],
+                                 ])
+
+        k_int = np.zeros((8, 3, 8, 3))
+        for gp in gauss_points:
+            F = self.f(x, gp)
+            temp = np.einsum('ak, ikjl, bl -> aibj', self.der_N_x(x, gp), self.mat.tan(F), self.der_N_x(x, gp))
+            temp *= np.linalg.det(self.der_x_xi(x, gp))
+            k_int += temp
+        return k_int
+
+    def k(self, x):
+        return self.k_const(x) + self.k_sig(x)
+
+    def k(self, x_complete): # 7.35
+        x = self._get_nodes(x_complete)
+        return self.k_const(x) + self.k_sig(x)
+
+mat = Neohooke_comp(mu=150, clam=1000)
+
+nodes_init = np.array([[0.0, 0.0, 0.0],  # 1
+                       [1.0, 0.0, 0.0],  # 2
+                       [1.0, 1.0, 0.0],  # 3
+                       [0.0, 1.0, 0.0],  # 4
+                       [0.0, 0.0, 1.0],  # 5
+                       [1.0, 0.0, 1.0],  # 6
+                       [1.0, 1.0, 1.0],  # 7
+                       [0.0, 1.0, 1.0],  # 8
+                       [2.0, 0.0, 1.0],  # 9
+                       [2.0, 1.0, 1.0],  # 10
+                       [2.0, 0.0, 0.0],  # 11
+                       [2.0, 1.0, 0.0],  # 12
+                       ])
+
+def make_2d_indices(dof):
+    iresult, jresult = [], []
+    for i in dof:
+        for j in dof:
+            iresult.append(i)
+            jresult.append(j)
+    return iresult, jresult 
